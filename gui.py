@@ -1,42 +1,63 @@
-import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QFileDialog, QLabel
+mport sys
+import os
+from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QLabel, QPushButton
 from PyQt5.QtGui import QPixmap
-from SkyAR import SkyAR
-class App(QWidget):
+import cv2
+import skyar
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title = 'SkyAR GUI'
-        self.left = 10
-        self.top = 10
-        self.width = 640
-        self.height = 480
-        self.initUI()
-    def initUI(self):
-        self.setWindowTitle(self.title)
-        self.setGeometry(self.left, self.top, self.width, self.height)
-        # create a label for the canvas
-        self.label = QLabel(self)
-        self.label.setGeometry(0, 0, self.width, self.height)
-        # create a button to select an image
-        self.button = QPushButton('Select Image', self)
-        self.button.move(0, self.height - 50)
-        self.button.clicked.connect(self.selectImage)
-        self.show()
-    def selectImage(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        fileName, _ = QFileDialog.getOpenFileName(self,"Select Image", "","All Files (*);;Image Files (*.png *.jpg *.bmp)", options=options)
-        if fileName:
-            # load the selected image
-            pixmap = QPixmap(fileName)
-            # display the image on the canvas
-            self.label.setPixmap(pixmap)
-            self.label.setScaledContents(True)
-            # create a SkyAR instance and display the augmented reality
-            ar = SkyAR()
-            ar.load_image(fileName)
-            ar.show()
-if __name__ == '__main__':
+        self.setWindowTitle("SkyAR GUI")
+        self.setGeometry(100, 100, 800, 600)
+        self.video_file = ""
+        self.sky_image = ""
+        self.create_menu()
+        self.create_toolbar()
+        self.create_status_bar()
+    def create_menu(self):
+        menu = self.menuBar()
+        file_menu = menu.addMenu("File")
+        open_video_action = QAction("Open Video", self)
+        open_video_action.triggered.connect(self.open_video)
+        file_menu.addAction(open_video_action)
+        open_sky_image_action = QAction("Open Sky Image", self)
+        open_sky_image_action.triggered.connect(self.open_sky_image)
+        file_menu.addAction(open_sky_image_action)
+    def create_toolbar(self):
+        toolbar = self.addToolBar("Toolbar")
+        process_button = QPushButton("Process")
+        process_button.clicked.connect(self.process)
+        toolbar.addWidget(process_button)
+    def create_status_bar(self):
+        status_bar = self.statusBar()
+        self.status_label = QLabel("Ready")
+        status_bar.addWidget(self.status_label)
+    def open_video(self):
+        filename, _ = QFileDialog.getOpenFileName(self, "Open Video", os.path.expanduser("~"), "Video Files (*.mp4 *.avi)")
+        if filename:
+            self.video_file = filename
+            self.status_label.setText(f"Video file selected: {filename}")
+    def open_sky_image(self):
+        filename, _ = QFileDialog.getOpenFileName(self, "Open Sky Image", os.path.expanduser("~"), "Image Files (*.jpg *.jpeg *.png)")
+        if filename:
+            self.sky_image = filename
+            pixmap = QPixmap(filename)
+            self.sky_image_label.setPixmap(pixmap)
+            self.status_label.setText(f"Sky image selected: {filename}")
+    def process(self):
+        if not self.video_file:
+            self.status_label.setText("Please select a video file")
+            return
+        if not self.sky_image:
+            self.status_label.setText("Please select a sky image")
+            return
+        self.status_label.setText("Processing...")
+        cap = cv2.VideoCapture(self.video_file)
+        sky = cv2.imread(self.sky_image)
+        skyar.replace_sky(cap, sky)
+        self.status_label.setText("Done")
+if __name__ == "__main__":
     app = QApplication(sys.argv)
-    ex = App()
+    window = MainWindow()
+    window.show()
     sys.exit(app.exec_())
